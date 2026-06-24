@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Next.js (never commit — stale output causes missing chunk / 682.js errors)
+frontend/.next/
+frontend/out/
+
+# Tooling caches
+frontend/node_modules/.cache/
+.turbo/
+
+# Local env (secrets)
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.log
