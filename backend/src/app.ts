@@ -12,7 +12,11 @@ export function createApp() {
   const app = express();
 
   app.disable("x-powered-by");
-  app.use(helmet());
+  app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
   app.use(cookieParser());
 
   app.use((req, _res, next) => {
@@ -54,7 +58,14 @@ export function createApp() {
   });
 
   // Local dev uploads (use S3/Cloudinary for production).
-  app.use("/uploads", express.static("uploads"));
+  app.use(
+  "/uploads",
+  (_req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static("uploads")
+);
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.use("/api", router);

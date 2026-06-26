@@ -27,10 +27,10 @@ export function SiteFooter() {
               Expert-led classes, practice, and outcomes you can trust.
             </p>
             <div className="mt-6 flex gap-3">
-              <SocialIcon href="https://youtube.com" label="YouTube">
+              <SocialIcon href="https://youtube.com/@riseupacademy-v9o?si=tT2KHR09YJLiH-76" label="YouTube">
                 <Youtube className="h-5 w-5" />
               </SocialIcon>
-              <SocialIcon href="https://instagram.com" label="Instagram">
+              <SocialIcon href="https://www.instagram.com/rise_up_academy1?igsh=NW1mN3l1dzVyZzc5" label="Instagram">
                 <Instagram className="h-5 w-5" />
               </SocialIcon>
               <SocialIcon href="https://x.com" label="X (Twitter)">
@@ -67,13 +67,13 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>Jamner, Maharashtra, India</li>
               <li>
-                <a href="tel:8459504536" className="transition hover:text-violet-700">
-                  8459504536
+                <a href="tel:7030809361" className="transition hover:text-violet-700">
+                  7030809361
                 </a>
               </li>
               <li>
-                <a href="mailto:ishwarrathod708@gmail.com" className="transition hover:text-violet-700">
-                  ishwarrathod708@gmail.com
+                <a href="mailto:riseupacademy042@gmail.com" className="transition hover:text-violet-700">
+                  riseupacademy042@gmail.com
                 </a>
               </li>
             </ul>

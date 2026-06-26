@@ -157,7 +157,7 @@ export function VideoLecturePlayer({
       // swallow
     }
   }
-
+  
   if (!lecture) {
     return (
       <div className="rounded-3xl border bg-background p-6 text-sm text-muted-foreground shadow-soft">
@@ -213,16 +213,17 @@ export function VideoLecturePlayer({
 
       {activeTab === "video" ? (
         <div className="rounded-3xl border bg-background p-3 shadow-soft">
-          <video
+         <video
+            key={lecture.id}
             ref={videoRef}
-            className="h-auto w-full rounded-2xl"
+            src={lecture.videoUrl}
+            className="w-full max-h-[500px] rounded-2xl object-contain bg-black"
             controls
             playsInline
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
           >
-            {/* Backend provides videoUrl (could be mp4 or signed url). */}
-            <source src={lecture.videoUrl} />
+            
           </video>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div className="text-xs text-muted-foreground">

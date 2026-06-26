@@ -142,6 +142,7 @@ export default function AdminDashboardPage() {
 
   const [lectures, setLectures] = React.useState<Lecture[]>([]);
   const [lectureForm, setLectureForm] = React.useState({
+    
     title: "",
     sequence: 0,
     durationSec: "",
@@ -149,7 +150,8 @@ export default function AdminDashboardPage() {
     notesFile: null as File | null,
     pdfFile: null as File | null,
   });
-
+  const [previewLecture, setPreviewLecture] = React.useState<Lecture | null>(null);
+  const [editingLecture, setEditingLecture] = React.useState<Lecture | null>(null);
   const [quizDraft, setQuizDraft] = React.useState<QuizDraft>({
     title: "",
     description: "",
@@ -333,38 +335,85 @@ export default function AdminDashboardPage() {
   async function onUploadLecture() {
     if (!token) return;
     if (!selectedCourseId) return;
-    if (!lectureForm.title.trim()) return setError("Lecture title required.");
-    if (!lectureForm.videoFile) return setError("Video file required.");
+    if (!editingLecture && !lectureForm.videoFile) {
+  return setError("Video file required.");
+}
     setBusy(true);
     setError(null);
     setSuccess(null);
     try {
-      const videoUrl = await uploadAdminFile({ token, file: lectureForm.videoFile });
-      const notesUrl = lectureForm.notesFile ? await uploadAdminFile({ token, file: lectureForm.notesFile }) : undefined;
-      const pdfUrl = lectureForm.pdfFile ? await uploadAdminFile({ token, file: lectureForm.pdfFile }) : undefined;
-
-      await apiFetch(`/api/admin/courses/${encodeURIComponent(selectedCourseId)}/lectures`, {
-        method: "POST",
+      let videoUrl = editingLecture?.videoUrl;
+          if (lectureForm.videoFile) {
+            videoUrl = await uploadAdminFile({
+              token,
+              file: lectureForm.videoFile,
+            });
+          }
+      let notesUrl = editingLecture?.notesUrl;
+          if (lectureForm.notesFile) {
+            notesUrl = await uploadAdminFile({
+              token,
+              file: lectureForm.notesFile,
+            });
+          }
+      let pdfUrl = editingLecture?.pdfUrl;
+          if (lectureForm.pdfFile) {
+            pdfUrl = await uploadAdminFile({
+              token,
+              file: lectureForm.pdfFile,
+            });
+          }
+      if (editingLecture) {
+      await apiFetch(`/api/admin/lectures/${editingLecture.id}`, {
+        method: "PUT",
         json: {
           title: lectureForm.title.trim(),
           videoUrl,
-          notesUrl,
-          pdfUrl,
+          ...(notesUrl ? { notesUrl } : {}),
+          ...(pdfUrl ? { pdfUrl } : {}),
           sequence: lectureForm.sequence ?? 0,
-          durationSec: lectureForm.durationSec ? Number(lectureForm.durationSec) : undefined,
+          durationSec: lectureForm.durationSec
+            ? Number(lectureForm.durationSec)
+            : undefined,
         },
       });
 
+      setSuccess("Lecture updated.");
+    } else {
+      await apiFetch(
+        `/api/admin/courses/${encodeURIComponent(selectedCourseId)}/lectures`,
+        {
+          method: "POST",
+          json: {
+            title: lectureForm.title.trim(),
+            videoUrl,
+            notesUrl,
+            pdfUrl,
+            sequence: lectureForm.sequence ?? 0,
+            durationSec: lectureForm.durationSec
+              ? Number(lectureForm.durationSec)
+              : undefined,
+          },
+        }
+      );
+
       setSuccess("Lecture uploaded.");
-      setLectureForm({
-        title: "",
-        sequence: lectures.length ? lectures[lectures.length - 1]?.sequence + 1 : 0,
-        durationSec: "",
-        videoFile: null,
-        notesFile: null,
-        pdfFile: null,
-      });
-      await loadLectures(selectedCourseId);
+    }
+
+    setLectureForm({
+      title: "",
+      sequence: lectures.length
+        ? lectures[lectures.length - 1]?.sequence + 1
+        : 0,
+      durationSec: "",
+      videoFile: null,
+      notesFile: null,
+      pdfFile: null,
+    });
+
+    setEditingLecture(null);
+
+    await loadLectures(selectedCourseId);
     } catch (e: any) {
       setError(e?.message ?? "Failed to upload lecture");
     } finally {
@@ -746,7 +795,7 @@ export default function AdminDashboardPage() {
               <CardContent className="p-6">
                 <div className="grid gap-6 md:grid-cols-[420px_1fr]">
                   <div className="rounded-3xl border bg-background p-5">
-                    <div className="text-sm font-semibold text-primary">Upload new lecture</div>
+                    <div className="text-sm font-semibold text-primary">{editingLecture ? "Edit Lecture" : "Upload New Lecture"}</div>
                     <div className="mt-4 space-y-3">
                       <div>
                         <div className="text-xs font-semibold text-muted-foreground">Lecture Title</div>
@@ -803,8 +852,14 @@ export default function AdminDashboardPage() {
                           onChange={(e) => setLectureForm((p) => ({ ...p, pdfFile: e.target.files?.[0] ?? null }))}
                         />
                       </div>
-                      <Button className="w-full" onClick={onUploadLecture} disabled={busy || !selectedCourseId}>
-                        {busy ? "Uploading..." : "Upload Lecture"}
+                      <Button
+                        className="w-full"
+                        onClick={onUploadLecture}
+                        disabled={busy || !selectedCourseId}
+                      >
+                        {busy
+                          ? (editingLecture ? "Updating..." : "Uploading...")
+                          : (editingLecture ? "Update Lecture" : "Upload Lecture")}
                       </Button>
                     </div>
                   </div>
@@ -822,7 +877,68 @@ export default function AdminDashboardPage() {
                                   Video: {l.videoUrl ? "Ready" : "—"} · Notes: {l.notesUrl ? "Yes" : "No"} · PDF: {l.pdfUrl ? "Yes" : "No"}
                                 </div>
                               </div>
-                              <div className="text-xs text-muted-foreground">ID: {l.id.slice(0, 8)}…</div>
+                              <div className="flex gap-2">
+
+                            <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPreviewLecture(l)}
+                            >
+                            Preview
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setEditingLecture(l);
+
+                                setLectureForm({
+                                  title: l.title,
+                                  sequence: l.sequence,
+                                  durationSec: l.durationSec?.toString() ?? "",
+                                  videoFile: null,
+                                  notesFile: null,
+                                  pdfFile: null,
+                                });
+
+                                window.scrollTo({
+                                  top: 0,
+                                  behavior: "smooth",
+                                });
+                              }}
+                            >
+                              Edit
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                const ok = window.confirm(
+                                  `Delete lecture "${l.title}"?\n\nThis action cannot be undone.`
+                                );
+
+                                if (!ok) return;
+
+                                try {
+                                  await apiFetch(`/api/admin/lectures/${l.id}`, {
+                                    method: "DELETE",
+                                  });
+
+                                  setSuccess("Lecture deleted successfully.");
+
+                                  if (selectedCourseId) {
+                                    await loadLectures(selectedCourseId);
+                                  }
+                                } catch (e: any) {
+                                  setError(e?.message ?? "Failed to delete lecture.");
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+
+                            </div>
                             </div>
                           </div>
                         ))
@@ -832,6 +948,63 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
                 </div>
+                {previewLecture && (
+                  <div className="mt-8 rounded-3xl border bg-background p-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          Lecture Preview
+                        </h3>
+
+                        <p className="text-sm text-muted-foreground">
+                          {previewLecture.title}
+                        </p>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setPreviewLecture(null)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+
+                    <video
+                      src={previewLecture.videoUrl}
+                      controls
+                      className="aspect-video w-full rounded-2xl bg-black object-contain"
+                    />
+
+                    {previewLecture.notesUrl && (
+                      <div className="mt-4">
+                        <Button asChild>
+                          <a
+                            href={previewLecture.notesUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            View Notes
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+
+                    {previewLecture.pdfUrl && (
+                      <div className="mt-4">
+                        <Button asChild variant="secondary">
+                          <a
+                            href={previewLecture.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            View PDF
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </CardContent>
             </Card>
           ) : null}

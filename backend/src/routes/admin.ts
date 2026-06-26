@@ -4,6 +4,7 @@ import { prisma } from "../prismaClient.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
 import multer from "multer";
+import fs from "fs";
 import path from "path";
 
 export const adminRouter = Router();
@@ -123,7 +124,84 @@ adminRouter.post("/courses/:courseId/lectures", ...adminOnly, asyncRoute(async (
 
   return res.json({ lecture: created });
 }));
+const lectureUpdateSchema = lectureCreateSchema.partial();
 
+adminRouter.put(
+  "/lectures/:lectureId",
+  ...adminOnly,
+  asyncRoute(async (req, res) => {
+    const body = lectureUpdateSchema.safeParse(req.body);
+
+    if (!body.success) {
+      return res.status(400).json({
+        error: body.error.flatten(),
+      });
+    }
+
+    const updated = await prisma.lecture.update({
+      where: {
+        id: req.params.lectureId,
+      },
+      data: {
+        ...(body.data.title !== undefined && { title: body.data.title }),
+        ...(body.data.videoUrl !== undefined && { videoUrl: body.data.videoUrl }),
+        ...(body.data.notesUrl !== undefined && { notesUrl: body.data.notesUrl }),
+        ...(body.data.pdfUrl !== undefined && { pdfUrl: body.data.pdfUrl }),
+        ...(body.data.sequence !== undefined && { sequence: body.data.sequence }),
+        ...(body.data.durationSec !== undefined && {
+          durationSec: body.data.durationSec,
+        }),
+      },
+    });
+
+    return res.json({ lecture: updated });
+  })
+);
+adminRouter.delete(
+  "/lectures/:lectureId",
+  ...adminOnly,
+  asyncRoute(async (req, res) => {
+    const lecture = await prisma.lecture.findUnique({
+      where: { id: req.params.lectureId },
+    });
+
+    if (!lecture) {
+      return res.status(404).json({
+        message: "Lecture not found",
+      });
+    }
+
+    function deleteLocalFile(fileUrl?: string | null) {
+      if (!fileUrl) return;
+
+      try {
+        const filename = path.basename(fileUrl);
+        const filePath = path.join(process.cwd(), "uploads", filename);
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error("File delete failed:", err);
+      }
+    }
+
+    deleteLocalFile(lecture.videoUrl);
+    deleteLocalFile(lecture.notesUrl);
+    deleteLocalFile(lecture.pdfUrl);
+
+    await prisma.lecture.delete({
+      where: {
+        id: lecture.id,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      message: "Lecture deleted successfully",
+    });
+  })
+);
 // Quizzes
 const quizQuestionSchema = z.object({
   prompt: z.string().min(1),
