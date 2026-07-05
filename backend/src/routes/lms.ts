@@ -1,3 +1,4 @@
+import { verifyEnrollment } from "../lib/access.js";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prismaClient.js";
@@ -6,7 +7,7 @@ import { asyncRoute } from "../middleware/asyncRoute.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-
+import PDFDocument from "pdfkit";
 export const lmsRouter = Router();
 
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -36,7 +37,16 @@ const assignmentUpload = multer({
 lmsRouter.get("/lectures", requireAuth, asyncRoute(async (req, res) => {
   const courseId = String(req.query.courseId ?? "");
   if (!courseId) return res.status(400).json({ error: "courseId required" });
+  const enrolled = await verifyEnrollment(
+  req.user!.userId,
+  courseId
+);
 
+if (!enrolled) {
+  return res.status(403).json({
+    error: "Course access denied",
+  });
+}
   const lectures = await prisma.lecture.findMany({
     where: { courseId },
     orderBy: { sequence: "asc" },
@@ -96,7 +106,26 @@ const progressSchema = z.object({
 lmsRouter.post("/progress/lecture/:lectureId", requireAuth, asyncRoute(async (req, res) => {
   const lectureId = req.params.lectureId;
   const userId = req.user!.userId;
+  const lecture = await prisma.lecture.findUnique({
+  where: { id: lectureId },
+    });
 
+    if (!lecture) {
+      return res.status(404).json({
+        error: "Lecture not found",
+      });
+    }
+
+    const enrolled = await verifyEnrollment(
+      userId,
+      lecture.courseId
+    );
+
+    if (!enrolled) {
+      return res.status(403).json({
+        error: "Course access denied",
+      });
+    }
   const body = progressSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.flatten() });
   const { positionSec, durationSec } = body.data;
@@ -226,6 +255,270 @@ lmsRouter.get("/certificates/my", requireAuth, asyncRoute(async (req, res) => {
   });
   return res.json({ certificates });
 }));
+lmsRouter.post(
+  "/certificates/generate/:courseId",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const userId = req.user!.userId;
+    const { courseId } = req.params;
+
+    const existing = await prisma.certificate.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+    });
+
+    if (existing) {
+      return res.json({
+        certificate: existing,
+      });
+    }
+
+    const certificate = await prisma.certificate.create({
+      data: {
+        userId,
+        courseId,
+      },
+    });
+
+    return res.json({
+      certificate,
+    });
+  })
+);
+lmsRouter.get(
+  "/certificates/:certificateId/download",
+  //requireAuth,
+  asyncRoute(async (req, res) => {
+    //const userId = req.user!.userId;
+    const { certificateId } = req.params;
+
+    const certificate = await prisma.certificate.findUnique({
+      where: { id: certificateId },
+      include: {
+        user: true,
+        course: true,
+      },
+    });
+
+    if (!certificate) {
+      return res.status(404).json({
+        error: "Certificate not found",
+      });
+    }
+
+    /*if (certificate.userId !== userId) {
+      return res.status(403).json({
+        error: "Access denied",
+      });
+    }*/
+
+    const doc = new PDFDocument({
+  size: "A4",
+  layout: "landscape",
+  margin: 0,
+});
+
+res.setHeader(
+  "Content-Disposition",
+  `attachment; filename=certificate-${certificate.id}.pdf`
+);
+
+res.setHeader(
+  "Content-Type",
+  "application/pdf"
+);
+
+doc.pipe(res);
+
+const pageWidth = 842;
+const pageHeight = 595;
+
+// Background
+doc.rect(0, 0, pageWidth, pageHeight).fill("#FFFFFF");
+
+// Outer Border
+doc
+  .rect(15, 15, pageWidth - 30, pageHeight - 30)
+  .lineWidth(4)
+  .stroke("#D4AF37");
+
+// Inner Border
+doc
+  .rect(25, 25, pageWidth - 50, pageHeight - 50)
+  .lineWidth(1)
+  .stroke("#D4AF37");
+const logoPath = path.join(
+  process.cwd(),
+  "uploads",
+  "logo.png"
+);
+
+if (fs.existsSync(logoPath)) {
+  doc.image(
+    logoPath,
+    60,
+    30,
+    {
+      width: 140,
+    }
+  );
+}
+// Academy Name
+doc
+  .fillColor("#4F46E5")
+  .fontSize(34)
+  .text("RiseUp Academy", 0, 40, {
+    width: pageWidth,
+    align: "center",
+  });
+
+// Tagline
+doc
+  .fillColor("#666666")
+  .fontSize(12)
+  .text("THE PEAK OF LEARNING", 0, 78, {
+    width: pageWidth,
+    align: "center",
+  });
+
+// Certificate ID
+doc
+  .fillColor("#000000")
+  .fontSize(11)
+  .text(
+    `Certificate ID: RUA-${certificate.id.slice(0, 8)}`,
+    620,
+    45
+  );
+
+// Title
+doc
+  .fillColor("#D4AF37")
+  .fontSize(46)
+  .text("CERTIFICATE", 0, 125, {
+    width: pageWidth,
+    align: "center",
+  });
+
+doc
+  .fillColor("#111111")
+  .fontSize(24)
+  .text("OF COMPLETION", 0, 180, {
+    width: pageWidth,
+    align: "center",
+  });
+// Message
+doc
+  .fillColor("#555555")
+  .fontSize(16)
+  .text("This certifies that", 0, 250, {
+    width: pageWidth,
+    align: "center",
+  });
+
+// Student Name
+const studentName =
+  certificate.user?.name ||
+  "Student";
+
+doc
+  .fillColor("#111827")
+  .fontSize(42)
+  .text(studentName, 0, 290, {
+    width: pageWidth,
+    align: "center",
+  });
+
+// Completion Text
+doc
+  .fillColor("#555555")
+  .fontSize(16)
+  .text("has successfully completed all requirements for", 0, 350, {
+    width: pageWidth,
+    align: "center",
+  });
+
+// Course Name
+doc
+  .fillColor("#4F46E5")
+  .fontSize(26)
+  .text(certificate.course.title, 0, 390, {
+    width: pageWidth,
+    align: "center",
+  });
+
+// Signature Line
+const signaturePath = path.join(
+  process.cwd(),
+  "uploads",
+  "signature.png"
+);
+if (fs.existsSync(signaturePath)) {
+  doc.image(
+    signaturePath,
+    90,
+    455,
+    {
+      width: 120,
+    }
+  );
+}
+
+doc
+  .moveTo(80, 505)
+  .lineTo(240, 505)
+  .stroke("#000000");
+
+doc
+  .fillColor("#000000")
+  .fontSize(16)
+  .text("Er. Ishwar Rathod", 80, 515);
+
+doc
+  .fontSize(11)
+  .text(
+    "Founder & Director",
+    90,
+    540
+  );
+
+// Seal
+const sealPath = path.join(
+  process.cwd(),
+  "uploads",
+  "seal.png"
+);
+
+if (fs.existsSync(sealPath)) {
+  doc.image(
+    sealPath,
+    306,   // x
+    430,   // y
+    {
+      width: 230,
+    }
+  );
+}
+
+// Issue Date
+doc
+  .fontSize(12)
+  .fillColor("#000000")
+  .text(
+    `Issued: ${new Date(
+      certificate.issuedAt
+    ).toLocaleDateString()}`,
+    620,
+    520
+  );
+
+doc.end();
+  })
+);
 
 // Assignments list (student).
 lmsRouter.get("/assignments", requireAuth, asyncRoute(async (req, res) => {
@@ -233,8 +526,18 @@ lmsRouter.get("/assignments", requireAuth, asyncRoute(async (req, res) => {
   const enrollments = await prisma.enrollment.findMany({ where: { userId } });
   const courseIds = enrollments.map((e) => e.courseId);
 
-  const assignments = await prisma.assignment.findMany({
-    where: courseIds.length ? { courseId: { in: courseIds } } : undefined,
+  if (!courseIds.length) {
+  return res.json({
+    assignments: [],
+  });
+}
+
+const assignments = await prisma.assignment.findMany({
+  where: {
+    courseId: {
+      in: courseIds,
+    },
+  },
     orderBy: { dueAt: "asc" },
     select: {
       id: true,

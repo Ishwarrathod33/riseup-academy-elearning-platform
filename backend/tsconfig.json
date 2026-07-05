@@ -14,5 +14,5 @@
     "noEmitOnError": true,
     "types": ["node", "multer"]
   },
-  "include": ["src"]
+  "include": ["src", "../frontend/src/features/ai-tutor/AiTutor.tsx"]
 }

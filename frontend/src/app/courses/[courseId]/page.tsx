@@ -81,7 +81,21 @@ function CourseDetailInner() {
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+    async function generateCertificate() {
+    try {
+      await apiFetch(
+        `/api/lms/certificates/generate/${courseId}`,
+        {
+          method: "POST",
+          auth: true,
+        }
+      );
 
+      alert("Certificate Generated");
+    } catch (err) {
+      console.error(err);
+    }
+  }
   const selectedLecture = React.useMemo(() => {
     if (!selectedLectureId) return null;
     return lectures.find((l) => l.id === selectedLectureId) ?? null;
@@ -277,6 +291,14 @@ function CourseDetailInner() {
             </div>
             <div className="md:w-[380px]">
               <CourseProgressBar percent={overallProgress} />
+              {overallProgress >= 100 && (
+                  <Button
+                    onClick={generateCertificate}
+                    className="mt-4"
+                  >
+                    Generate Certificate
+                  </Button>
+                )}
             </div>
           </div>
 

@@ -422,7 +422,7 @@ export function StudentDashboardView(vm: StudentDashboardVM) {
                 <DashboardTabBar
                   tab={tab}
                   onChange={setTab}
-                  badges={{ assignments: pendingAssignments.length }}
+                  badges={{ }}
                 />
               </div>
             </div>
@@ -611,85 +611,7 @@ export function StudentDashboardView(vm: StudentDashboardVM) {
                 </div>
               ) : null}
 
-              {tab === "assignments" ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card className="rounded-2xl border-gray-200/90 shadow-sm ring-1 ring-gray-100/50">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-2">
-                        <ClipboardList className="h-5 w-5 text-orange-500" />
-                        <h2 className="font-display text-lg font-bold">Pending</h2>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{pendingAssignments.length} to submit</p>
-                      <div className="mt-4 space-y-3">
-                        {pendingAssignments.length ? (
-                          pendingAssignments.map((a: any) => (
-                            <div
-                              key={a.id}
-                              className="rounded-2xl border border-orange-100 bg-orange-50/30 p-4 transition hover:border-orange-200"
-                            >
-                              <p className="font-semibold text-gray-900">{a.title}</p>
-                              <p className="mt-1 text-xs text-muted-foreground">Due: {a.dueAt ? new Date(a.dueAt).toLocaleString() : "—"}</p>
-                              <Button
-                                size="sm"
-                                className="mt-3 rounded-xl bg-violet-700 hover:bg-violet-800"
-                                onClick={() => router.push(`/courses/${encodeURIComponent(a.courseId)}`)}
-                              >
-                                Open course
-                              </Button>
-                            </div>
-                          ))
-                        ) : (
-                          <EmptyState
-                            icon={ClipboardList}
-                            title="All caught up"
-                            description="You have no pending assignments right now."
-                          />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="rounded-2xl border-gray-200/90 shadow-sm ring-1 ring-gray-100/50">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-2">
-                        <Award className="h-5 w-5 text-violet-600" />
-                        <h2 className="font-display text-lg font-bold">Submitted</h2>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{submittedAssignments.length} submission(s)</p>
-                      <div className="mt-4 space-y-3">
-                        {submittedAssignments.length ? (
-                          submittedAssignments.map((a: any) => (
-                            <div key={a.id} className="rounded-2xl border border-violet-100 bg-violet-50/20 p-4">
-                              <p className="font-semibold text-gray-900">{a.title}</p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Submitted: {a.submission?.submittedAt ? new Date(a.submission.submittedAt).toLocaleString() : "—"}
-                              </p>
-                              {a.submission?.attachmentUrl ? (
-                                <a
-                                  className="mt-2 inline-block text-sm font-semibold text-violet-700 hover:underline"
-                                  href={a.submission.attachmentUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  View attachment
-                                </a>
-                              ) : null}
-                            </div>
-                          ))
-                        ) : (
-                          <EmptyState
-                            icon={Award}
-                            title="No submissions yet"
-                            description="Submit assignments from your course pages to see them listed here."
-                            actionLabel="Go to courses"
-                            onAction={() => router.push("/courses")}
-                          />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : null}
+              
 
               {tab === "certificates" ? (
                 <div className="grid gap-4 md:grid-cols-2">
@@ -703,6 +625,15 @@ export function StudentDashboardView(vm: StudentDashboardVM) {
                           <div className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/30 p-4 text-sm text-muted-foreground">
                             {c.metadata ? "Certificate metadata on file." : "Certificate details will appear when issued."}
                           </div>
+                          <Button
+                             className="mt-4 w-full rounded-2xl bg-violet-700 hover:bg-violet-800"
+                              onClick={() => {
+                                window.location.href =
+                                  `http://localhost:8080/api/lms/certificates/${c.id}/download`;
+                              }}
+                          >
+                            Download Certificate
+                          </Button>
                         </CardContent>
                       </Card>
                     ))
