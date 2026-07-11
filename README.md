@@ -60,7 +60,7 @@ riseup/
 │  │  ├─ types/                   # Shared backend request/type declarations
 │  │  ├─ app.ts                   # Express app wiring, middleware, global error handler
 │  │  └─ index.ts                 # Server bootstrap
-│  ├─ uploads/                    # Local file uploads (dev-style)
+│  ├─ assets/                    # Local file uploads (dev-style)
 │  └─ package.json
 ├─ frontend/
 │  ├─ public/

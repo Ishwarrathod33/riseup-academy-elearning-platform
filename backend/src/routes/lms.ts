@@ -168,6 +168,16 @@ lmsRouter.get("/quizzes/:quizId", requireAuth, asyncRoute(async (req, res) => {
     },
   });
   if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+  const enrolled = await verifyEnrollment(
+  req.user!.userId,
+  quiz.courseId
+  );
+
+  if (!enrolled) {
+    return res.status(403).json({
+      error: "Course access denied",
+    });
+  }
   return res.json({ quiz });
 }));
 
@@ -188,7 +198,16 @@ lmsRouter.post("/quizzes/:quizId/submit", requireAuth, asyncRoute(async (req, re
   });
 
   if (!quizWithQuestions) return res.status(404).json({ error: "Quiz not found" });
+  const enrolled = await verifyEnrollment(
+  userId,
+  quizWithQuestions.courseId
+    );
 
+    if (!enrolled) {
+      return res.status(403).json({
+        error: "Course access denied",
+      });
+    }
   const answers = body.data.answers;
   const total = quizWithQuestions.questions.reduce((sum, q) => sum + q.marks, 0);
   let score = 0;
@@ -261,7 +280,16 @@ lmsRouter.post(
   asyncRoute(async (req, res) => {
     const userId = req.user!.userId;
     const { courseId } = req.params;
+    const enrolled = await verifyEnrollment(
+        userId,
+        courseId
+      );
 
+      if (!enrolled) {
+        return res.status(403).json({
+          error: "Course access denied",
+        });
+      }
     const existing = await prisma.certificate.findUnique({
       where: {
         userId_courseId: {
@@ -291,11 +319,10 @@ lmsRouter.post(
 );
 lmsRouter.get(
   "/certificates/:certificateId/download",
-  //requireAuth,
+  requireAuth,
   asyncRoute(async (req, res) => {
-    //const userId = req.user!.userId;
+    const userId = req.user!.userId;
     const { certificateId } = req.params;
-
     const certificate = await prisma.certificate.findUnique({
       where: { id: certificateId },
       include: {
@@ -310,11 +337,11 @@ lmsRouter.get(
       });
     }
 
-    /*if (certificate.userId !== userId) {
+    if (certificate.userId !== userId) {
       return res.status(403).json({
         error: "Access denied",
       });
-    }*/
+    }
 
     const doc = new PDFDocument({
   size: "A4",
@@ -353,7 +380,7 @@ doc
   .stroke("#D4AF37");
 const logoPath = path.join(
   process.cwd(),
-  "uploads",
+  "assets",
   "logo.png"
 );
 
@@ -454,7 +481,7 @@ doc
 // Signature Line
 const signaturePath = path.join(
   process.cwd(),
-  "uploads",
+  "assets",
   "signature.png"
 );
 if (fs.existsSync(signaturePath)) {
@@ -489,7 +516,7 @@ doc
 // Seal
 const sealPath = path.join(
   process.cwd(),
-  "uploads",
+  "assets",
   "seal.png"
 );
 
