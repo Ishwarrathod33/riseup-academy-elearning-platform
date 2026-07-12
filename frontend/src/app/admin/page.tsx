@@ -101,7 +101,7 @@ async function uploadAdminFile(params: { token: string; file: File }) {
   form.append("file", params.file);
   const r = await fetch(`${API_BASE_URL}/api/admin/uploads`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${params.token}` },
+    headers: {  },
     body: form,
     credentials: "include",
   });
@@ -185,13 +185,8 @@ export default function AdminDashboardPage() {
   const [attendanceMarkingForm, setAttendanceMarkingForm] = React.useState<MarkingFormRow[]>([]);
 
   React.useEffect(() => {
-    const t = localStorage.getItem(STORAGE_KEYS.accessToken);
-    if (!t) {
-      router.push("/login");
-      return;
-    }
-    setToken(t);
-  }, [router]);
+  setToken("cookie-auth");
+}, []);
 
   async function loadCourses() {
     const data = await fetch(`${API_BASE_URL}/api/courses`, { cache: "no-store" }).then((r) => r.json());

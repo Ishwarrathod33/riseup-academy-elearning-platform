@@ -36,24 +36,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUser = React.useCallback(async () => {
-    if (typeof window === "undefined") return;
-    const token = localStorage.getItem(STORAGE_KEYS.accessToken);
-    syncJwtPreview();
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-    try {
-      const { user: u } = await getMe();
-      setUser(u);
-    } catch {
-      setUser(null);
-      localStorage.removeItem(STORAGE_KEYS.accessToken);
-    } finally {
-      setLoading(false);
-    }
-  }, [syncJwtPreview]);
+  if (typeof window === "undefined") return;
+
+  try {
+    const { user: u } = await getMe();
+    setUser(u);
+  } catch {
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const setSessionFromStorage = React.useCallback(async () => {
     await refreshUser();
