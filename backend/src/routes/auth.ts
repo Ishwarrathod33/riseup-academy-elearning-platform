@@ -27,7 +27,7 @@ function setAuthCookies(res: Response, accessToken: string, refreshToken: string
   res.cookie("access_token", accessToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? "strict" : "lax",
+    sameSite: "none",
     maxAge: env.JWT_ACCESS_EXPIRES_IN_SECONDS * 1000,
     path: "/",
   });
@@ -35,7 +35,7 @@ function setAuthCookies(res: Response, accessToken: string, refreshToken: string
   res.cookie("refresh_token", refreshToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? "strict" : "lax",
+    sameSite: "none",
     maxAge: env.JWT_REFRESH_EXPIRES_IN_SECONDS * 1000,
     path: "/api/auth",
   });

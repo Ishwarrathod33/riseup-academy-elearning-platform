@@ -10,7 +10,9 @@ import { env } from "./config/env.js";
 export function createApp() {
     const app = express();
     app.disable("x-powered-by");
-    app.use(helmet());
+    app.use(helmet({
+        crossOriginResourcePolicy: false,
+    }));
     app.use(cookieParser());
     app.use((req, _res, next) => {
         // eslint-disable-next-line no-console
@@ -27,6 +29,9 @@ export function createApp() {
         allowedHeaders: ["Content-Type", "Authorization"],
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     }));
+    // Security: Apply rate limiting BEFORE body parsing to prevent
+    // CPU/Memory exhaustion from massive payload parsing (DoS protection).
+    app.use(limiter);
     // Razorpay webhooks must be verified against the raw request body.
     // This route will not use the global JSON parser.
     app.use("/api/payments/webhook", express.raw({ type: "*/*" }));
@@ -41,9 +46,11 @@ export function createApp() {
             return next();
         return express.urlencoded({ extended: false, limit: "10mb" })(req, res, next);
     });
-    app.use(limiter);
     // Local dev uploads (use S3/Cloudinary for production).
-    app.use("/uploads", express.static("uploads"));
+    app.use("/uploads", (_req, res, next) => {
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        next();
+    }, express.static("uploads"));
     app.get("/health", (_req, res) => res.json({ ok: true }));
     app.use("/api", router);
     const errorHandler = (err, _req, res, next) => {
@@ -53,7 +60,13 @@ export function createApp() {
             next(err);
             return;
         }
-        res.status(500).json({ message: "Internal Server Error" });
+        // Security & Dev UX: Don't leak stack traces in prod, but allow custom HTTP error statuses
+        const isProd = process.env.NODE_ENV === "production";
+        const status = err.status || 500;
+        res.status(status).json({
+            message: isProd && status === 500 ? "Internal Server Error" : err.message,
+            ...(isProd ? {} : { stack: err.stack })
+        });
     };
     app.use(errorHandler);
     return app;

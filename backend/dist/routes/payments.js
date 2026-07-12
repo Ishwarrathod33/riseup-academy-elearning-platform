@@ -37,35 +37,8 @@ paymentsRouter.post("/create", requireAuth, asyncRoute(async (req, res) => {
         const amountPaise = Math.round(course.price * 100); // INR
         const receipt = `rcpt_${crypto.randomBytes(10).toString("hex")}`;
         if (!isRazorpayConfigured()) {
-            const userId = req.user.userId;
-            const dummyOrderId = `order_dummy_${crypto.randomBytes(8).toString("hex")}`;
-            await prisma.payment.create({
-                data: {
-                    userId,
-                    courseId,
-                    razorpayOrderId: dummyOrderId,
-                    razorpayPaymentId: `pay_dummy_${crypto.randomBytes(8).toString("hex")}`,
-                    amount: amountPaise,
-                    currency: env.RAZORPAY_CURRENCY,
-                    status: "PAID",
-                    method: "razorpay_dummy",
-                    planId: courseId,
-                },
-            });
-            await prisma.enrollment.upsert({
-                where: { userId_courseId: { userId, courseId } },
-                update: {},
-                create: { userId, courseId, status: "ACTIVE" },
-            });
-            return res.json({
-                dummy: true,
-                keyId: "rzp_test_dummy",
-                orderId: dummyOrderId,
-                amount: amountPaise,
-                currency: env.RAZORPAY_CURRENCY,
-                courseTitle: course.title,
-                message: "Razorpay not configured — dummy order for development",
-                enrolled: true,
+            return res.status(500).json({
+                error: "Razorpay not configured",
             });
         }
         let order;
@@ -82,41 +55,6 @@ paymentsRouter.post("/create", requireAuth, asyncRoute(async (req, res) => {
             }));
         }
         catch (rpErr) {
-            // In development, fall back to a fake order so the UX still works even if keys are invalid.
-            if (env.NODE_ENV !== "production") {
-                const userId = req.user.userId;
-                const dummyOrderId = `order_dummy_${crypto.randomBytes(8).toString("hex")}`;
-                await prisma.payment.create({
-                    data: {
-                        userId,
-                        courseId,
-                        razorpayOrderId: dummyOrderId,
-                        razorpayPaymentId: `pay_dummy_${crypto.randomBytes(8).toString("hex")}`,
-                        amount: amountPaise,
-                        currency: env.RAZORPAY_CURRENCY,
-                        status: "PAID",
-                        method: "razorpay_dummy",
-                        planId: courseId,
-                    },
-                });
-                await prisma.enrollment.upsert({
-                    where: { userId_courseId: { userId, courseId } },
-                    update: {},
-                    create: { userId, courseId, status: "ACTIVE" },
-                });
-                // eslint-disable-next-line no-console
-                console.error("[payments/create] Razorpay error in dev, falling back to dummy order:", rpErr);
-                return res.json({
-                    dummy: true,
-                    keyId: "rzp_test_dummy",
-                    orderId: dummyOrderId,
-                    amount: amountPaise,
-                    currency: env.RAZORPAY_CURRENCY,
-                    courseTitle: course.title,
-                    message: "Razorpay auth failed — using dummy order for development",
-                    enrolled: true,
-                });
-            }
             throw rpErr;
         }
         const userId = req.user.userId;
