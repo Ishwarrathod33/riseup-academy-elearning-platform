@@ -38,10 +38,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = React.useCallback(async () => {
   if (typeof window === "undefined") return;
 
+  const token = localStorage.getItem(STORAGE_KEYS.accessToken);
+
+  if (!token) {
+    setUser(null);
+    setLoading(false);
+    return;
+  }
+
   try {
     const { user: u } = await getMe();
     setUser(u);
   } catch {
+    localStorage.removeItem(STORAGE_KEYS.accessToken);
     setUser(null);
   } finally {
     setLoading(false);
@@ -53,16 +62,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshUser]);
 
   React.useEffect(() => {
-    void refreshUser();
-  }, [refreshUser]);
+  syncJwtPreview();
+  void refreshUser();
+}, [refreshUser, syncJwtPreview]);
 
   const logout = React.useCallback(async () => {
+  try {
     await logoutApi();
-    setUser(null);
-    setJwtPreview(null);
-    router.push("/login");
-    router.refresh();
-  }, [router]);
+  } catch {}
+
+  localStorage.removeItem(STORAGE_KEYS.accessToken);
+
+  setUser(null);
+  setJwtPreview(null);
+
+  router.push("/login");
+  router.refresh();
+}, [router]);
 
   const value = React.useMemo<AuthContextValue>(
     () => ({

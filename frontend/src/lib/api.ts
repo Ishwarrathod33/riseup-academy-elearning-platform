@@ -3,6 +3,7 @@
  * to reach the backend — avoids CORS and many "Failed to fetch" cases.
  * Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` only if you need to call the API directly.
  */
+import { STORAGE_KEYS } from "./constants";
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
@@ -71,8 +72,15 @@ export async function apiFetch<T>(
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  // Cookie-based auth: API calls rely on HttpOnly cookies (`credentials: include`).
-  void (options.auth ?? true);
+  const auth = options.auth ?? true;
+
+if (auth && typeof window !== "undefined") {
+  const token = localStorage.getItem(STORAGE_KEYS.accessToken);
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+}
 
   if (options.json !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -114,7 +122,7 @@ export async function apiFetch<T>(
     data = { raw: text };
   }
 
-  const auth = options.auth ?? true;
+  
   const canAutoRefresh = auth && !path.startsWith("/api/auth/refresh");
   if (res.status === 401 && canAutoRefresh) {
     const refreshed = await tryRefreshSession();

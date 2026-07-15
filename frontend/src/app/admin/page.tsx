@@ -114,6 +114,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   const [token, setToken] = React.useState<string | null>(null);
+  
   const [section, setSection] = React.useState<AdminSection>("courses");
 
   const [busy, setBusy] = React.useState(false);
